@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.0</version>
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+    </dependencies>
+</project>
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/social
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+package com.example.backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BackendApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(BackendApplication.class, args);
+    }
+}
+package com.example.backend;
+
+public class Result {
+    private int code;
+    private String msg;
+    private Object data;
+
+    public static Result success(Object data) {
+        Result r = new Result();
+        r.code = 200;
+        r.msg = "成功";
+        r.data = data;
+        return r;
+    }
+
+    public int getCode() { return code; }
+    public String getMsg() { return msg; }
+    public Object getData() { return data; }
+}
+package com.example.backend;
+
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+@CrossOrigin
+public class UserController {
+    @Autowired
+    private UserMapper userMapper;
+
+    @PostMapping("/login")
+    public Result login(@RequestBody User user) {
+        return Result.success(userMapper.login(user));
+    }
+}
+
+@Mapper
+interface UserMapper {
+    @Select("select * from user where username=#{username} and password=#{password}")
+    User login(User user);
+}
+
+class User {
+    private Integer id;
+    private String username;
+    private String password;
+
+    public Integer getId() { return id; }
+    public String getUsername() { return username; }
+    public String getPassword() { return password; }
+}
+package com.example.backend;
+
+import org.apache.ibatis.annotations.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/post")
+@CrossOrigin
+public class PostController {
+    @Autowired
+    private PostMapper postMapper;
+
+    @GetMapping("/list")
+    public Result list() {
+        return Result.success(postMapper.list());
+    }
+
+    @GetMapping("/my")
+    public Result my(int userId) {
+        return Result.success(postMapper.myList(userId));
+    }
+
+    @PostMapping("/add")
+    public Result add(@RequestBody Post post) {
+        postMapper.add(post);
+        return Result.success(null);
+    }
+
+    @PostMapping("/like/{id}")
+    public Result like(@PathVariable int id) {
+        postMapper.like(id);
+        return Result.success(null);
+    }
+
+    @DeleteMapping("/{id}")
+    public Result del(@PathVariable int id) {
+        postMapper.del(id);
+        return Result.success(null);
+    }
+}
+
+@Mapper
+interface PostMapper {
+    @Select("select p.*,u.username from post p left join user u on p.user_id=u.id order by id desc")
+    List<Post> list();
+
+    @Select("select * from post where user_id=#{userId}")
+    List<Post> myList(int userId);
+
+    @Insert("insert into post(title,content,img_url,user_id) values(#{title},#{content},#{imgUrl},#{userId})")
+    void add(Post post);
+
+    @Update("update post set like_count=like_count+1 where id=#{id}")
+    void like(int id);
+
+    @Delete("delete from post where id=#{id}")
+    void del(int id);
+}
+
+class Post {
+    private Integer id;
+    private String title;
+    private String content;
+    private String imgUrl;
+    private Integer userId;
+    private Integer likeCount;
+    private String username;
+
+    public Integer getId() { return id; }
+    public String getTitle() { return title; }
+    public String getContent() { return content; }
+    public String getImgUrl() { return imgUrl; }
+    public Integer getUserId() { return userId; }
+    public Integer getLikeCount() { return likeCount; }
+    public String getUsername() { return username; }
+}
+package com.example.backend;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/comment")
+@CrossOrigin
+public class CommentController {
+    @Autowired
+    private CommentMapper commentMapper;
+
+    @PostMapping("/add")
+    public Result add(@RequestBody Comment comment) {
+        commentMapper.add(comment);
+        return Result.success(null);
+    }
+}
+
+@Mapper
+interface CommentMapper {
+    @Insert("insert into comment(post_id,content) values(#{postId},#{content})")
+    void add(Comment comment);
+}
+
+class Comment {
+    private Integer postId;
+    private String content;
+
+    public Integer getPostId() { return postId; }
+    public String getContent() { return content; }
+}
+package com.example.backend;
+
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+
+@RestController
+@CrossOrigin
+public class UploadController {
+    @PostMapping("/upload")
+    public Result upload(MultipartFile file) throws Exception {
+        String name = "upload/" + System.currentTimeMillis() + ".jpg";
+        File dir = new File("src/main/resources/static/upload");
+        if (!dir.exists()) dir.mkdirs();
+        file.transferTo(new File(dir, file.getOriginalFilename()));
+        return Result.success("http://localhost:8080/upload/" + file.getOriginalFilename());
+    }
+}

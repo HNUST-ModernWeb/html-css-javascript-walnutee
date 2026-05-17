@@ -1,0 +1,280 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "vue": "^3.3.8",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.4.0",
+    "vite": "^5.0.0"
+  }
+}
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [vue()]
+})
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>社交分享平台</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+import { createApp } from 'vue'
+import './style.css'
+import App from './App.vue'
+import router from './router'
+
+createApp(App).use(router).mount('#app')
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+import { createRouter, createWebHistory } from 'vue-router'
+import Home from '../views/Home.vue'
+import Publish from '../views/Publish.vue'
+import Profile from '../views/Profile.vue'
+import Login from '../views/Login.vue'
+
+const routes = [
+  { path: '/', redirect: '/home' },
+  { path: '/home', component: Home },
+  { path: '/publish', component: Publish },
+  { path: '/profile', component: Profile },
+  { path: '/login', component: Login },
+]
+
+export default createRouter({
+  history: createWebHistory(),
+  routes
+})
+<template>
+  <div>
+    <header>简易社交分享平台</header>
+    <nav>
+      <router-link to="/home">首页</router-link>
+      <router-link to="/publish">发布</router-link>
+      <router-link to="/profile">我的</router-link>
+      <router-link to="/login">登录</router-link>
+    </nav>
+    <div class="container">
+      <router-view />
+    </div>
+  </div>
+</template>
+
+<style>
+header {
+  background: #409eff;
+  color: white;
+  padding: 14px;
+  text-align: center;
+}
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  padding: 12px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+nav a {
+  text-decoration: none;
+  color: #333;
+}
+.container {
+  max-width: 750px;
+  margin: 0 auto;
+  padding: 20px;
+}
+</style>
+<template>
+  <div class="login">
+    <h2>登录</h2>
+    <input v-model="username" placeholder="用户名" />
+    <input v-model="password" type="password" placeholder="密码" />
+    <button @click="login">登录</button>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
+const router = useRouter()
+const username = ref('')
+const password = ref('')
+
+const login = async () => {
+  const res = await axios.post('http://localhost:8080/user/login', {
+    username: username.value,
+    password: password.value
+  })
+  if (res.data.code === 200) {
+    localStorage.setItem('user', username.value)
+    alert('登录成功')
+    router.push('/home')
+  }
+}
+</script>
+
+<style scoped>
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 400px;
+  margin: 50px auto;
+}
+input { padding: 10px; border: 1px solid #ddd; }
+button { padding: 10px; background: #409eff; color: white; border: none; }
+</style>
+<template>
+  <div class="home">
+    <div class="card" v-for="item in list" :key="item.id">
+      <h3>{{ item.title }}</h3>
+      <p>作者：{{ item.username }}</p>
+      <p>{{ item.content }}</p>
+      <img v-if="item.img_url" :src="item.img_url" style="max-width:100%" />
+
+      <div class="like">
+        <button @click="like(item.id)">👍 点赞 {{ item.like_count }}</button>
+      </div>
+
+      <div class="comment">
+        <input v-model="cContent" placeholder="写评论..." />
+        <button @click="sendComment(item.id)">发送</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+const list = ref([])
+const cContent = ref('')
+
+const getList = async () => {
+  const res = await axios.get('http://localhost:8080/post/list')
+  list.value = res.data.data
+}
+
+const like = async (id) => {
+  await axios.post(`http://localhost:8080/post/like/${id}`)
+  getList()
+}
+
+const sendComment = async (postId) => {
+  await axios.post('http://localhost:8080/comment/add', {
+    postId, content: cContent.value
+  })
+  cContent.value = ''
+  getList()
+}
+
+onMounted(() => getList())
+</script>
+
+<style scoped>
+.card {
+  background: white;
+  padding: 20px;
+  margin: 15px 0;
+  border-radius: 8px;
+  box-shadow: 0 1px 5px #0001;
+}
+</style>
+<template>
+  <div class="publish">
+    <h2>发布动态</h2>
+    <input v-model="title" placeholder="标题" />
+    <textarea v-model="content" placeholder="内容"></textarea>
+    <input type="file" @change="upload" />
+    <button @click="submit">发布</button>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
+const router = useRouter()
+const title = ref('')
+const content = ref('')
+const imgUrl = ref('')
+
+const upload = async (e) => {
+  const fd = new FormData()
+  fd.append('file', e.target.files[0])
+  const res = await axios.post('http://localhost:8080/upload', fd)
+  imgUrl.value = res.data.data
+}
+
+const submit = async () => {
+  await axios.post('http://localhost:8080/post/add', {
+    title: title.value,
+    content: content.value,
+    imgUrl: imgUrl.value,
+    userId: 1
+  })
+  alert('发布成功')
+  router.push('/home')
+}
+</script>
+
+<style scoped>
+.publish {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+input,textarea { padding: 10px; border: 1px solid #ddd; }
+button { padding: 10px; background: #409eff; color: white; border: none; }
+</style>
+<template>
+  <div class="profile">
+    <h2>个人中心</h2>
+    <div v-for="item in myList" :key="item.id" class="card">
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.content }}</p>
+      <button @click="del(item.id)">删除</button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+const myList = ref([])
+
+const getMy = async () => {
+  const res = await axios.get('http://localhost:8080/post/my?userId=1')
+  myList.value = res.data.data
+}
+
+const del = async (id) => {
+  await axios.delete(`http://localhost:8080/post/${id}`)
+  getMy()
+}
+
+onMounted(() => getMy())
+</script>
